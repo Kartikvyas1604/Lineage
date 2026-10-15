@@ -64,34 +64,43 @@ export function ReviewExperience() {
           ]}
           value={tab}
           onValueChange={setTab}
+          idBase="proposals"
           aria-label="Proposal status"
         />
       </div>
 
-      {!proposals ? (
-        <div className="flex flex-col gap-4">
-          <Skeleton className="h-40 w-full" />
-          <Skeleton className="h-40 w-full" />
-        </div>
-      ) : shown.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border py-14 text-center">
-          <Inbox className="h-6 w-6 text-muted-foreground" aria-hidden />
-          <p className="text-sm font-medium text-foreground">
-            {tab === "pending" ? "Nothing to review" : "No resolved proposals yet"}
-          </p>
-          <p className="max-w-sm text-sm text-muted-foreground">
-            {tab === "pending"
-              ? "The graph is consistent. New supersessions and contradictions will show up here."
-              : "Accept or reject a proposal and it will move here."}
-          </p>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-4">
-          {shown.map((p) => (
-            <ProposalCard key={p.id} proposal={p} onDecide={handleDecide} />
-          ))}
-        </div>
-      )}
+      <div
+        role="tabpanel"
+        id={`proposals-panel-${tab}`}
+        aria-labelledby={`proposals-tab-${tab}`}
+        tabIndex={0}
+        className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        {!proposals ? (
+          <div className="flex flex-col gap-4">
+            <Skeleton className="h-40 w-full" />
+            <Skeleton className="h-40 w-full" />
+          </div>
+        ) : shown.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed border-border py-14 text-center">
+            <Inbox className="h-6 w-6 text-muted-foreground" aria-hidden />
+            <p className="text-sm font-medium text-foreground">
+              {tab === "pending" ? "Nothing to review" : "No resolved proposals yet"}
+            </p>
+            <p className="max-w-sm text-sm text-muted-foreground">
+              {tab === "pending"
+                ? "The graph is consistent. New supersessions and contradictions will show up here."
+                : "Accept or reject a proposal and it will move here."}
+            </p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-4">
+            {shown.map((p) => (
+              <ProposalCard key={p.id} proposal={p} onDecide={handleDecide} />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

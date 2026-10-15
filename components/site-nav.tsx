@@ -31,7 +31,7 @@ export function SiteNav() {
             )}
           >
             <Icon className="h-4 w-4" aria-hidden />
-            <span className="hidden sm:inline">{label}</span>
+            <span className="sr-only sm:not-sr-only">{label}</span>
           </Link>
         );
       })}

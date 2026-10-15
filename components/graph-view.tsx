@@ -269,12 +269,12 @@ export function GraphView({
         aria-label={`Knowledge graph: ${subgraph.nodes.length} nodes, ${subgraph.edges.length} relationships.`}
         className={cn("w-full rounded-lg border border-border bg-card", heightClass)}
       />
-      <div className="absolute bottom-3 left-3 flex items-center gap-1 rounded-md border border-border bg-popover/90 p-1 backdrop-blur">
+      <div className="absolute bottom-3 left-3 flex items-center gap-0.5 rounded-md border border-border bg-popover/90 p-0.5 backdrop-blur">
         <button
           type="button"
           onClick={() => zoom(1.25)}
           aria-label="Zoom in"
-          className="inline-flex h-8 w-8 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <Plus className="h-4 w-4" aria-hidden />
         </button>
@@ -282,7 +282,7 @@ export function GraphView({
           type="button"
           onClick={() => zoom(0.8)}
           aria-label="Zoom out"
-          className="inline-flex h-8 w-8 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <Minus className="h-4 w-4" aria-hidden />
         </button>
@@ -290,14 +290,14 @@ export function GraphView({
           type="button"
           onClick={fit}
           aria-label="Fit to view"
-          className="inline-flex h-8 w-8 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <Maximize2 className="h-4 w-4" aria-hidden />
         </button>
         <button
           type="button"
           onClick={relayout}
-          className="inline-flex h-8 items-center rounded-sm px-2 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="inline-flex h-9 items-center rounded-sm px-2.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           Re-layout
         </button>
@@ -308,7 +308,7 @@ export function GraphView({
           type="button"
           onClick={() => setListOpen((v) => !v)}
           aria-expanded={listOpen}
-          className="inline-flex h-8 items-center rounded-md border border-border bg-popover/90 px-2 text-xs font-medium text-muted-foreground backdrop-blur hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="inline-flex h-9 items-center rounded-md border border-border bg-popover/90 px-2.5 text-xs font-medium text-muted-foreground backdrop-blur hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {listOpen ? "Hide list" : "List view"}
         </button>

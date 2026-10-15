@@ -12,13 +12,16 @@ export interface TabsProps {
   items: TabItem[];
   value: string;
   onValueChange: (value: string) => void;
+  /** Shared id base so the consumer can render matching tabpanels. */
+  idBase?: string;
   className?: string;
   "aria-label"?: string;
 }
 
 /** Accessible tab list: roving tabindex + arrow/Home/End keys. */
-export function Tabs({ items, value, onValueChange, className, ...rest }: TabsProps & ComponentProps<"div">) {
-  const baseId = useId();
+export function Tabs({ items, value, onValueChange, idBase, className, ...rest }: TabsProps & ComponentProps<"div">) {
+  const generated = useId();
+  const baseId = idBase ?? generated;
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
 
   function onKeyDown(e: React.KeyboardEvent, index: number) {
