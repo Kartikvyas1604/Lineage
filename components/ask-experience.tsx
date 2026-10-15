@@ -85,15 +85,15 @@ export function AskExperience() {
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6 sm:py-12">
       {showHero && (
-        <div className="flex flex-col gap-3 pt-4 sm:pt-10">
+        <div className="flex flex-col gap-3 rounded-xl border border-border bg-brand-bg p-6 sm:p-8">
           <p className="inline-flex w-fit items-center gap-1.5 rounded-full border border-border px-3 py-1 text-xs text-muted-foreground">
             <Waypoints className="h-3.5 w-3.5" aria-hidden />
             Company knowledge graph · every answer shows its path
           </p>
-          <h1 className="max-w-3xl font-display text-4xl font-semibold tracking-tight sm:text-5xl">
+          <h1 className="max-w-3xl text-balance font-display text-4xl font-semibold tracking-tight sm:text-5xl">
             Ask your company why.
           </h1>
-          <p className="max-w-2xl text-base leading-7 text-muted-foreground">
+          <p className="max-w-2xl text-pretty text-base leading-7 text-muted-foreground">
             Lineage answers why a decision was made, what it broke, and who to ask — by walking the
             graph of decisions, docs, tickets and people. If there&apos;s no path, it says so.
           </p>

@@ -26,7 +26,8 @@ export function AnswerPanel({
 }) {
   const c = CONFIDENCE[response.confidence];
   return (
-    <section aria-label="Answer" className="flex flex-col gap-4 rounded-lg border border-border bg-card p-4 sm:p-5">
+    <section aria-label="Answer" className="relative flex flex-col gap-4 overflow-hidden rounded-lg border border-border bg-card p-4 sm:p-5">
+      <span className="absolute left-0 right-0 top-0 h-0.5 bg-brand-accent" aria-hidden />
       <div className="flex flex-wrap items-center gap-2">
         <Badge tone={c.tone} title={c.note}>
           <c.Icon className="h-3 w-3" aria-hidden />
