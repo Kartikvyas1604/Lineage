@@ -361,16 +361,12 @@ export function decisionById(id: string) {
   return decisions.find((d) => d.id === id);
 }
 
-/** Nodes that point at `decisionId` via DEPENDS_ON | IMPLEMENTS | REFERENCES. */
+/** Nodes that depend on `decisionId` via DEPENDS_ON (the staleness frontier). */
 export function dependentsOf(decisionId: string): GraphNode[] {
   const ids = edges
-    .filter(
-      (edge) =>
-        ["DEPENDS_ON", "IMPLEMENTS", "REFERENCES"].includes(edge.type) &&
-        edge.target === decisionId,
-    )
+    .filter((edge) => edge.type === "DEPENDS_ON" && edge.target === decisionId)
     .map((edge) => edge.source);
-  return ids.map(nodeById).filter((n): n is GraphNode => Boolean(n) && n!.id !== decisionId);
+  return ids.map(nodeById).filter((n): n is GraphNode => Boolean(n));
 }
 
 export function ownersOf(nodeId: string): Person[] {

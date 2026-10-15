@@ -52,7 +52,14 @@ export function ThemeToggle() {
   const label = `Theme: ${theme}. Activate to change.`;
 
   return (
-    <Button variant="ghost" size="icon" onClick={cycle} aria-label={label} title={label}>
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={cycle}
+      aria-label={label}
+      title={label}
+      suppressHydrationWarning
+    >
       <Icon className="h-4 w-4" aria-hidden />
     </Button>
   );

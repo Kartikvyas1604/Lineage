@@ -76,23 +76,52 @@ const STOP = new Set([
   "who", "how", "does", "and", "of", "to", "in", "on", "our", "us", "with",
   "from", "be", "was", "were", "it", "this", "that", "which", "when", "did",
   "know", "knows", "about", "any", "can", "you", "me", "tell", "going", "on",
+  "if", "should", "would", "could", "there", "their",
 ]);
+
+/** Very small normaliser so questions and graph text meet in the middle. */
+const SYNONYMS: Record<string, string> = {
+  retention: "retain",
+  retained: "retain",
+  retains: "retain",
+  deleting: "delete",
+  removed: "remove",
+  moving: "move",
+  stored: "store",
+  storage: "store",
+  stores: "store",
+  logs: "log",
+  sessions: "session",
+  systems: "system",
+  people: "person",
+};
+
+function norm(w: string): string {
+  if (SYNONYMS[w]) return SYNONYMS[w];
+  if (w.length > 3 && w.endsWith("s")) return w.slice(0, -1);
+  return w;
+}
 
 function tokens(s: string): string[] {
   return s
     .toLowerCase()
     .replace(/[^a-z0-9\s-]/g, " ")
     .split(/\s+/)
-    .filter((w) => w.length > 1 && !STOP.has(w));
+    .filter((w) => w.length > 2 && !STOP.has(w))
+    .map(norm);
 }
 
 function scoreDecision(question: string, d: (typeof decisions)[number]): number {
   const q = tokens(question);
-  const hay = tokens(`${d.title} ${d.summary} ${d.rationale ?? ""}`).join(" ");
+  const hayWords = tokens(`${d.title} ${d.summary} ${d.rationale ?? ""}`);
+  const hay = hayWords.join(" ");
+  const haySet = new Set(hayWords);
   let score = 0;
   for (const w of q) {
-    if (hay.includes(w)) score += 1;
-    else if (hay.includes(w.slice(0, Math.max(4, w.length - 2)))) score += 0.4;
+    if (haySet.has(w)) score += 1;
+    // Prefix fallback only for long words, so short tokens can't match inside
+    // unrelated words (e.g. "if" inside "config").
+    else if (w.length >= 6 && hay.includes(w.slice(0, w.length - 2))) score += 0.4;
   }
   const statusBoost = d.status === "active" ? 1.15 : 1;
   return score * statusBoost;
@@ -211,10 +240,38 @@ function followUpsFor(d: (typeof decisions)[number], dependents: GraphNode[]): s
   return out.slice(0, 3);
 }
 
+interface Relation {
+  kind: "supersedes" | "contradicts";
+  status: "pending" | "accepted" | "rejected";
+  other_id: string;
+  other_title: string;
+  /** Whether the decision in hand is the older side of the relation. */
+  is_old: boolean;
+}
+
+/** The supersession/contradiction this decision is part of, if any. */
+function relationFor(d: (typeof decisions)[number]): Relation | undefined {
+  const p = demoProposals.find(
+    (x) =>
+      x.status !== "rejected" &&
+      (x.new_decision.id === d.id || x.old_decision.id === d.id),
+  );
+  if (!p) return undefined;
+  const isOld = p.old_decision.id === d.id;
+  const other = isOld ? p.new_decision : p.old_decision;
+  return {
+    kind: p.kind,
+    status: p.status,
+    other_id: other.id,
+    other_title: other.title,
+    is_old: isOld,
+  };
+}
+
 function answerFor(
   d: (typeof decisions)[number],
   dependents: GraphNode[],
-  contradicted: (typeof decisions)[number] | undefined,
+  relation: Relation | undefined,
 ): string {
   const decided = d.decided_by
     .map((id) => personById(id)?.name)
@@ -225,11 +282,19 @@ function answerFor(
   bits.push(d.summary);
   if (d.rationale) bits.push(`Why: ${d.rationale}`);
   bits.push(`Decided ${when}${decided ? ` by ${decided}` : ""}.`);
-  if (contradicted) {
+
+  if (relation?.kind === "supersedes" && relation.is_old) {
     bits.push(
-      `Heads up: ${contradicted.id} (“${contradicted.title}”) covers the same system with no recorded supersession — there is a pending review for it.`,
+      `This was superseded by ${relation.other_id} (“${relation.other_title}”) — everything downstream of it is now stale.`,
+    );
+  } else if (relation?.kind === "supersedes" && !relation.is_old) {
+    bits.push(`This supersedes ${relation.other_id} (“${relation.other_title}”).`);
+  } else if (relation?.kind === "contradicts") {
+    bits.push(
+      `Heads up: it conflicts with ${relation.other_id} (“${relation.other_title}”) on the same system — there is a ${relation.status} review for that.`,
     );
   }
+
   if (dependents.length) {
     bits.push(
       `${dependents.length} node${dependents.length === 1 ? "" : "s"} depend on this decision${
@@ -240,8 +305,149 @@ function answerFor(
   return bits.join(" ");
 }
 
-function noPathAnswer(question: string): AskResponse {
+/** "Who owns / maintains X?" → the owning team, contributors and governing decisions. */
+function ownershipAnswer(question: string): AskResponse | null {
+  const lower = question.toLowerCase();
+  const wants = /(owns?|leads?|maintains?|responsible|who should i ask|who do i ask|on call|oncall)/.test(
+    lower,
+  );
+  if (!wants) return null;
+  const q = tokens(question);
+  const system =
+    systems.find((s) => lower.includes(s.name.toLowerCase())) ??
+    systems.find((s) => q.some((w) => s.name.toLowerCase().split(" ").includes(w)));
+  if (!system) return null;
+
+  const teamId = edges.find(
+    (e) => e.type === "OWNS" && e.target === system.id && e.source.startsWith("team:"),
+  )?.source;
+  const team = allNodes.find((n) => n.id === teamId);
+  const contributors = edges
+    .filter((e) => e.type === "CONTRIBUTED_TO" && e.target === system.id)
+    .map((e) => nodeById(e.source))
+    .filter((n): n is GraphNode => Boolean(n));
+  const governing = edges
+    .filter((e) => e.type === "AFFECTS" && e.target === system.id)
+    .map((e) => decisions.find((d) => d.id === e.source))
+    .filter((d): d is (typeof decisions)[number] => Boolean(d));
+
+  const ids = new Set<string>([
+    system.id,
+    ...(team ? [team.id] : []),
+    ...contributors.map((c) => c.id),
+    ...governing.map((d) => d.id),
+  ]);
+
+  const names = contributors.map((c) => c.title).join(", ");
+  const parts: string[] = [];
+  parts.push(team ? `${system.name} is owned by the ${team.title} team.` : `${system.name} has no owning team on file.`);
+  if (names) parts.push(`People who've worked on it: ${names}.`);
+  if (governing.length) {
+    parts.push(`It's governed by ${governing.map((d) => `${d.id} (${d.title})`).join(", ")}.`);
+  }
+  parts.push(`Criticality ${system.criticality}/5.`);
+
   return {
+    answer: parts.join(" "),
+    citations: governing
+      .map((d) => nodeById(d.id))
+      .filter((n): n is GraphNode => Boolean(n))
+      .slice(0, 6)
+      .map((n) => ({ node_id: n.id, label: n.label, title: n.title, source_url: n.source_url ?? null })),
+    path: subgraphFrom(ids, edges),
+    steps: [
+      ...(team
+        ? [{ from_id: team.id, from_title: team.title, rel: "owns", to_id: system.id, to_title: system.name, source_url: null }]
+        : []),
+      ...contributors.slice(0, 4).map((c) => ({
+        from_id: c.id,
+        from_title: c.title,
+        rel: "works on",
+        to_id: system.id,
+        to_title: system.name,
+        source_url: null,
+      })),
+    ],
+    trace: [
+      { tool: "search_decisions", args: {}, ok: true, duration_ms: 22, cypher: ["SEARCH_DECISIONS"], summary: `Matched system ${system.id}` },
+      { tool: "who_knows", args: {}, ok: true, duration_ms: 39, cypher: ["WHO_KNOWS"], summary: `${contributors.length} contributors, 1 owning team` },
+    ],
+    confidence: contributors.length ? "high" : "low",
+    mode: "rules",
+    follow_ups: [
+      `What breaks if ${system.name} changes?`,
+      team ? `What else does ${team.title} own?` : `Who touches ${system.name}?`,
+      "What went stale this month?",
+    ],
+  };
+}
+
+/** "What went stale?" → the stale frontier and the decisions that caused it. */
+function stalenessAnswer(question: string): AskResponse | null {
+  if (!/(stale|outdated|out of date|what changed|gone wrong|drift|rotted)/.test(question.toLowerCase())) {
+    return null;
+  }
+  const stale = allNodes.filter((n) => n.status === "stale");
+  if (stale.length === 0) return null;
+
+  const byCause = new Map<string, GraphNode[]>();
+  for (const n of stale) {
+    const cause = n.stale_cause ?? "unknown";
+    const list = byCause.get(cause) ?? [];
+    list.push(n);
+    byCause.set(cause, list);
+  }
+
+  const causeBits: string[] = [];
+  const ids = new Set<string>(stale.map((n) => n.id));
+  const steps: PathStep[] = [];
+  for (const [causeId, nodes] of byCause) {
+    const cause = nodeById(causeId);
+    ids.add(causeId);
+    if (cause) {
+      const decision = decisions.find((d) => d.id === causeId);
+      const rel = decision ? relationFor(decision) : undefined;
+      causeBits.push(
+        `${nodes.length} from ${causeId} (“${cause.title}”)${rel?.other_id ? `, superseded by ${rel.other_id}` : ""}`,
+      );
+      steps.push({
+        from_id: causeId,
+        from_title: cause.title,
+        rel: "left stale",
+        to_id: nodes[0].id,
+        to_title: nodes[0].title,
+        source_url: nodes[0].source_url ?? null,
+      });
+    }
+  }
+
+  const names = stale.slice(0, 5).map((n) => n.title);
+  return {
+    answer:
+      `${stale.length} node${stale.length === 1 ? "" : "s"} in the graph are stale. ` +
+      `They trace back to: ${causeBits.join("; ")}. ` +
+      `Affected: ${names.join(", ")}${stale.length > names.length ? `, and ${stale.length - names.length} more` : ""}.`,
+    citations: stale
+      .filter((n) => n.source_url)
+      .slice(0, 6)
+      .map((n) => ({ node_id: n.id, label: n.label, title: n.title, source_url: n.source_url ?? null })),
+    path: subgraphFrom(ids, edges),
+    steps,
+    trace: [
+      { tool: "search_decisions", args: {}, ok: true, duration_ms: 31, cypher: ["SEARCH_DECISIONS"], summary: `Found ${stale.length} stale nodes` },
+      { tool: "impact_of", args: {}, ok: true, duration_ms: 47, cypher: ["IMPACT_OF"], summary: `Grouped by ${byCause.size} cause` },
+    ],
+    confidence: "high",
+    mode: "rules",
+    follow_ups: [
+      "What breaks if we change how sessions are stored?",
+      "Who owns the audit log?",
+      "Why do we use Redis for sessions?",
+    ],
+  };
+}
+
+function noPathAnswer(question: string): AskResponse {  return {
     answer:
       `I can't ground an answer to “${question}” in the graph — no decision, doc, ticket or thread connects the terms you used. ` +
       `Rather than guess, I'd need one of: a relevant doc ingested, a linked decision, or a thread where it was discussed.`,
@@ -264,6 +470,12 @@ export async function ask(req: AskRequest): Promise<AskResponse> {
   }
   const question = req.question.trim();
   if (question.length < 3) return noPathAnswer(question);
+
+  const ownership = ownershipAnswer(question);
+  if (ownership) return ownership;
+
+  const staleness = stalenessAnswer(question);
+  if (staleness) return staleness;
 
   const ranked = decisions
     .map((d) => ({ d, score: scoreDecision(question, d) }))
@@ -303,13 +515,7 @@ export async function ask(req: AskRequest): Promise<AskResponse> {
   const dependents = dependentsOf(d.id);
   const { nodes: set1 } = bfs(d.id, 2);
 
-  // Detect a live contradiction touching this decision.
-  const contradicted =
-    d.id === "decision:D-014"
-      ? decisions.find((x) => x.id === "decision:D-021")
-      : d.id === "decision:D-021"
-        ? decisions.find((x) => x.id === "decision:D-014")
-        : undefined;
+  const relation = relationFor(d);
 
   const confidence: Confidence =
     top.score >= 3 && (d.rationale ?? "").length > 0
@@ -319,7 +525,7 @@ export async function ask(req: AskRequest): Promise<AskResponse> {
         : "low";
 
   return {
-    answer: answerFor(d, dependents, contradicted),
+    answer: answerFor(d, dependents, relation),
     citations: citationsFor(d, set1),
     path: demoSubgraph(),
     steps: whyChain(d),
