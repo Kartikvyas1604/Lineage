@@ -1,36 +1,97 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Lineage
 
-## Getting Started
+The company brain that knows *why*, *who*, and *what went stale*.
 
-First, run the development server:
+Lineage is a knowledge graph over a company's decisions — ADRs, tickets, PRs,
+Slack threads, systems and people — that answers questions you can't get from
+search or a wiki:
+
+- **Why** was a decision made? (traced to the thread and the people who made it)
+- **What breaks** if it changes? (downstream impact, with owners)
+- **Who** should I ask? (ranked by who actually touched the thing)
+- **What's stale?** (everything downstream of a superseded decision, with a reason)
+
+Its defining rule: **every answer shows the path it came from. No path, no
+answer.** A claim the graph can't ground is returned as "I don't know", not
+guessed.
+
+The full product specification lives in `docs/Agent.md`.
+
+## This repo
+
+This is the **frontend** (Next.js 16 App Router, React 19, Tailwind v4). It runs
+fully against a bundled synthetic dataset out of the box, and switches to the
+real backend by setting one environment variable.
+
+### Pages
+
+| Route | What it does |
+|---|---|
+| `/` | **Ask** — question input, streamed agent trace, grounded answer with linked citations, animated evidence graph and source panel (with the exact Cypher). |
+| `/review` | **Review queue** — proposed supersessions and contradictions. Accept to mark the old decision superseded and everything downstream stale, with a reason and drafted update tasks. Includes an ingest panel. |
+| `/risk` | **Risk** — bus-factor-of-one systems and an offboarding simulator that ranks successors from the graph. |
+
+### Getting started
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000. No backend or database is required — the app runs on
+the demo dataset in `lib/demo-data.ts`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Backend switch
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+# .env.local
+NEXT_PUBLIC_API_BASE=http://localhost:8000
+```
 
-## Learn More
+With `NEXT_PUBLIC_API_BASE` set, every call in `lib/api.ts` goes to the FastAPI
+service instead of the demo emulation. The request/response types are the same
+(the contracts are in `lib/types.ts`, mirrored from the spec). You can confirm
+which mode the app is in from the badge in the header stats strip.
 
-To learn more about Next.js, take a look at the following resources:
+## Architecture
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```
+app/            routes (Ask / Review / Risk) + layout shell + brand tokens
+components/     ui/ primitives, graph-view, and one *-experience per page
+lib/
+  types.ts      wire contracts (spec sections 5 and 7.4)
+  api.ts        one client, two backends (demo emulation | live API)
+  demo-data.ts  synthetic "Northstar Pay" graph + query helpers
+  utils.ts      cn()
+app/globals.css brand tokens (palette "Graphite", light + dark)
+brand.md        the brand: palette, type, gradients, tone
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+The graph renders with [cytoscape](https://js.cytoscape.org/) + the `fcose`
+layout, imported client-side only. Everything is themed from CSS variables, so
+light and dark share one stylesheet.
 
-## Deploy on Vercel
+## Accessibility
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- Full keyboard support, visible focus rings, skip link.
+- The graph has a keyboard-accessible node list alongside it (canvas isn't
+  focusable), and status is always icon + word + color, never color alone.
+- `prefers-reduced-motion` disables the path animation, shimmer and spinner.
+- Labels + types on every input, `aria-live` on results/proposals.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Scripts
+
+```bash
+npm run dev        # develop
+npm run build      # production build
+npm run start      # serve the build
+npm run lint       # eslint
+npm run typecheck  # tsc --noEmit
+```
+
+## Notes
+
+- The audit advisories reported by `npm audit` are dev-only, transitive via
+  `eslint-config-next` (`braces`/`fast-glob`); they are not in the runtime
+  bundle.
+- All demo data is fictional.
