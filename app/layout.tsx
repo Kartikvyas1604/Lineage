@@ -1,4 +1,5 @@
-import { SiteNav, Wordmark } from "@/components/site-nav";
+import { Wordmark } from "@/components/logo";
+import { SiteNav } from "@/components/site-nav";
 import { StatsStrip } from "@/components/stats-strip";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Separator } from "@/components/ui/separator";

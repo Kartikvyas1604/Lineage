@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { GitBranch, ListChecks, ShieldAlert, Waypoints } from "lucide-react";
+import { ListChecks, ShieldAlert, Waypoints } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -36,18 +36,5 @@ export function SiteNav() {
         );
       })}
     </nav>
-  );
-}
-
-export function Wordmark() {
-  return (
-    <Link
-      href="/"
-      className="inline-flex items-center gap-2 rounded-md px-1 text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-    >
-      <GitBranch className="h-5 w-5 text-primary" aria-hidden />
-      <span className="font-display text-lg font-semibold tracking-tight">Lineage</span>
-      <span className="sr-only">— home</span>
-    </Link>
   );
 }
